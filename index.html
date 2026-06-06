@@ -16,19 +16,29 @@
 
     <!-- 添加记录 -->
     <div class="bg-white rounded-2xl shadow p-6 mb-8">
-      <h2 class="text-xl font-semibold mb-4">📝 添加今日饮食</h2>
-      <form id="logForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <h2 class="text-xl font-semibold mb-4">📝 添加今日饮食 / 运动</h2>
+      <form id="logForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <input type="date" id="date" class="border p-3 rounded-xl">
+        
         <select id="meal" class="border p-3 rounded-xl">
           <option value="早餐">早餐</option>
           <option value="午餐">午餐</option>
           <option value="晚餐">晚餐</option>
           <option value="加餐">加餐</option>
+          <option value="运动">运动 (消耗)</option>
         </select>
-        <input type="text" id="food" placeholder="食物名称（如：鸡胸肉沙拉）" class="border p-3 rounded-xl col-span-2">
-        <input type="text" id="quantity" placeholder="份量（如：200g）" class="border p-3 rounded-xl">
-        <input type="number" id="calories" placeholder="热量（kcal）" class="border p-3 rounded-xl">
-        <button type="submit" class="md:col-span-2 bg-green-600 text-white py-4 rounded-2xl font-medium hover:bg-green-700 transition">
+
+        <!-- 食物选择 + 自定义 -->
+        <div class="md:col-span-3">
+          <label class="block text-sm text-gray-600 mb-1">食物 / 运动项目</label>
+          <input list="foodList" id="food" placeholder="选择或输入食物名称" class="border p-3 rounded-xl w-full">
+          <datalist id="foodList"></datalist>
+        </div>
+
+        <input type="text" id="quantity" placeholder="份量（如：200g / 30分钟）" class="border p-3 rounded-xl">
+        <input type="number" id="calories" placeholder="热量（kcal）" class="border p-3 rounded-xl" step="1">
+        
+        <button type="submit" class="md:col-span-3 bg-green-600 text-white py-4 rounded-2xl font-medium hover:bg-green-700 transition text-lg">
           + 添加记录
         </button>
       </form>
