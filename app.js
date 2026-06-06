@@ -1,58 +1,111 @@
-let logs = JSON.parse(localStorage.getItem('dietLogs')) || [];
+// Supabase 配置
+const SUPABASE_URL = 'https://wgnvgmkgiztqeozmffbl.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_13EouLY7ZfwYOq0Y5uxtTw_OOk1G50y';
 
-// 常用中餐食物热量数据库 (每100g 或标准份参考值)
+let logs = [];
+let supabaseClient = null;
+
+// 初始化 Supabase
+async function initSupabase() {
+  if (!window.supabase) {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.onload = () => {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      loadLogs();
+    };
+    document.head.appendChild(script);
+  } else {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    loadLogs();
+  }
+}
+
+// 加载所有记录
+async function loadLogs() {
+  if (!supabaseClient) return;
+  
+  try {
+    const { data, error } = await supabaseClient
+      .from('diet_logs')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('加载数据失败:', error);
+      if (error.message.includes('relation "diet_logs" does not exist')) {
+        alert('首次使用：请在 Supabase 后台手动创建表 diet_logs');
+      }
+      return;
+    }
+    
+    logs = data || [];
+    renderLogs();
+    updateTodaySummary();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// 添加记录
+async function addLog(newLog) {
+  if (!supabaseClient) return false;
+  
+  try {
+    const { data, error } = await supabaseClient
+      .from('diet_logs')
+      .insert([newLog])
+      .select();
+
+    if (error) throw error;
+    
+    logs.unshift(data[0]);
+    return true;
+  } catch (err) {
+    console.error('添加失败:', err);
+    alert('保存失败: ' + err.message);
+    return false;
+  }
+}
+
+// 删除记录
+async function deleteLog(id) {
+  if (!supabaseClient || !confirm('确定删除这条记录吗？')) return;
+  
+  try {
+    const { error } = await supabaseClient
+      .from('diet_logs')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    
+    logs = logs.filter(log => log.id !== id);
+    renderLogs();
+    updateTodaySummary();
+  } catch (err) {
+    console.error(err);
+    alert('删除失败');
+  }
+}
+
+// 常用中餐食物热量数据库
 const foodDatabase = {
-  "米饭": 116,
-  "白米饭": 116,
-  "面条": 131,
-  "馒头": 223,
-  "包子(肉)": 250,
-  "饺子(猪肉)": 280,
-  "炒饭": 180,
-  "鸡蛋": 143,
-  "煎蛋": 180,
-  "牛奶": 60,
-  "豆浆": 45,
-  "鸡胸肉": 110,
-  "牛肉": 250,
-  "猪肉": 395,
-  "鱼": 120,
-  "虾": 99,
-  "西兰花": 34,
-  "青菜": 25,
-  "番茄": 18,
-  "黄瓜": 16,
-  "苹果": 52,
-  "香蕉": 89,
-  "橙子": 47,
-  "酸奶": 80,
-  "面包": 265,
-  "燕麦": 389,
-  "鸡腿": 240,
-  "红烧肉": 400,
-  "宫保鸡丁": 320,
-  "鱼香肉丝": 280,
-  "麻婆豆腐": 180,
-  "炒青菜": 80,
-  "蛋炒饭": 200,
-  "拉面": 350,
-  "火锅": 300,
-  "烧烤": 450,
-  "可乐": 42,
-  "咖啡(黑)": 2,
-  "跑步": 600,   // 每30分钟参考
-  "快走": 250,
-  "游泳": 500,
-  "健身": 400,
-  "骑行": 350,
-  "瑜伽": 200
+  "米饭": 116, "白米饭": 116, "面条": 131, "馒头": 223, "包子(肉)": 250,
+  "饺子(猪肉)": 280, "炒饭": 180, "鸡蛋": 143, "煎蛋": 180, "牛奶": 60,
+  "豆浆": 45, "鸡胸肉": 110, "牛肉": 250, "猪肉": 395, "鱼": 120,
+  "虾": 99, "西兰花": 34, "青菜": 25, "番茄": 18, "黄瓜": 16,
+  "苹果": 52, "香蕉": 89, "橙子": 47, "酸奶": 80, "面包": 265,
+  "燕麦": 389, "鸡腿": 240, "红烧肉": 400, "宫保鸡丁": 320,
+  "鱼香肉丝": 280, "麻婆豆腐": 180, "炒青菜": 80, "蛋炒饭": 200,
+  "拉面": 350, "火锅": 300, "烧烤": 450, "可乐": 42, "咖啡(黑)": 2,
+  "跑步": 600, "快走": 250, "游泳": 500, "健身": 400, "骑行": 350, "瑜伽": 200
 };
 
-// 填充食物下拉列表
+// 填充食物列表
 function populateFoodList() {
   const datalist = document.getElementById('foodList');
   datalist.innerHTML = '';
-  
   Object.keys(foodDatabase).forEach(food => {
     const option = document.createElement('option');
     option.value = food;
@@ -60,7 +113,7 @@ function populateFoodList() {
   });
 }
 
-// 食物选择后自动填充热量
+// 自动填充热量
 document.getElementById('food').addEventListener('input', function() {
   const foodName = this.value.trim();
   if (foodDatabase[foodName]) {
@@ -78,10 +131,7 @@ function renderLogs() {
     return;
   }
 
-  // 按日期倒序
-  const sortedLogs = [...logs].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  sortedLogs.forEach((log, index) => {
+  logs.forEach((log) => {
     const isExercise = log.meal === '运动';
     const div = document.createElement('div');
     div.className = 'bg-gray-50 p-4 rounded-2xl flex justify-between items-center hover:bg-gray-100 transition';
@@ -94,15 +144,15 @@ function renderLogs() {
         <div class="text-2xl font-bold ${isExercise ? 'text-orange-600' : 'text-green-600'}">
           ${isExercise ? '-' : ''}${log.calories} <span class="text-sm">kcal</span>
         </div>
-        <button onclick="deleteLog(${index})" class="text-red-500 text-sm mt-1 hover:underline">删除</button>
+        <button onclick="deleteLog('${log.id}')" class="text-red-500 text-sm mt-1 hover:underline">删除</button>
       </div>
     `;
     container.appendChild(div);
   });
 }
 
-// 添加记录
-document.getElementById('logForm').addEventListener('submit', function(e) {
+// 表单提交
+document.getElementById('logForm').addEventListener('submit', async function(e) {
   e.preventDefault();
   
   const newLog = {
@@ -117,30 +167,19 @@ document.getElementById('logForm').addEventListener('submit', function(e) {
     alert('请输入食物名称或运动项目');
     return;
   }
-
   if (newLog.calories <= 0) {
     alert('请输入热量值');
     return;
   }
 
-  logs.unshift(newLog); // 新记录放最前面
-  localStorage.setItem('dietLogs', JSON.stringify(logs));
-  
-  this.reset();
-  document.getElementById('date').value = new Date().toISOString().split('T')[0];
-  renderLogs();
-  updateTodaySummary();
-});
-
-// 删除记录
-window.deleteLog = function(index) {
-  if (confirm('确定删除这条记录吗？')) {
-    logs.splice(index, 1);
-    localStorage.setItem('dietLogs', JSON.stringify(logs));
+  const success = await addLog(newLog);
+  if (success) {
+    this.reset();
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
     renderLogs();
     updateTodaySummary();
   }
-};
+});
 
 // 今日总结 + 能量占比
 function updateTodaySummary() {
@@ -157,7 +196,6 @@ function updateTodaySummary() {
   
   const totalCal = todayLogs.reduce((sum, log) => sum + (log.calories || 0), 0);
   
-  // 按餐次统计
   const mealStats = {};
   todayLogs.forEach(log => {
     if (!mealStats[log.meal]) mealStats[log.meal] = 0;
@@ -171,7 +209,6 @@ function updateTodaySummary() {
     </div>
   `;
 
-  // 占比
   Object.keys(mealStats).forEach(meal => {
     const percent = totalCal > 0 ? Math.round((mealStats[meal] / totalCal) * 100) : 0;
     const color = meal === '运动' ? 'text-orange-600' : 'text-green-600';
@@ -203,5 +240,4 @@ window.exportData = function() {
 // 初始化
 document.getElementById('date').value = new Date().toISOString().split('T')[0];
 populateFoodList();
-renderLogs();
-updateTodaySummary();
+initSupabase();
